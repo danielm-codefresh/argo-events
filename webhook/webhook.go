@@ -189,6 +189,7 @@ func (ac *AdmissionController) register(
 		return errors.Wrapf(err, "failed to fetch webhook cluster role")
 	}
 	clusterRoleRef := metav1.NewControllerRef(clusterRole, rbacv1.SchemeGroupVersion.WithKind("ClusterRole"))
+	clusterRoleRef.BlockOwnerDeletion = newFalse()
 	webhook.OwnerReferences = append(webhook.OwnerReferences, *clusterRoleRef)
 
 	_, err = client.Create(ctx, webhook, metav1.CreateOptions{})
@@ -293,6 +294,10 @@ func (ac *AdmissionController) generateSecret(ctx context.Context) (*corev1.Secr
 	hosts = append(hosts, fmt.Sprintf("%s.%s.svc.cluster.local", ac.Options.ServiceName, ac.Options.Namespace))
 	hosts = append(hosts, fmt.Sprintf("%s.%s.svc", ac.Options.ServiceName, ac.Options.Namespace))
 	serverKey, serverCert, caCert, err := commontls.CreateCerts(certOrg, hosts, time.Now().Add(10*365*24*time.Hour))
+	ac.Logger.Info("Created certs: \n")
+	ac.Logger.Infof("serverKey: %s\n", serverKey)
+	ac.Logger.Infof("serverCert %s\n", serverCert)
+	ac.Logger.Infof("caCert %s\n", caCert)
 	if err != nil {
 		return nil, err
 	}
@@ -300,6 +305,9 @@ func (ac *AdmissionController) generateSecret(ctx context.Context) (*corev1.Secr
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to fetch webhook deployment")
 	}
+	ac.Logger.Infof("Deployment: %v\n", deployment)
+	ac.Logger.Infof("Deployment name: %s\n", deployment.Name)
+	ac.Logger.Infof("Deployment finalizers: %s\n", deployment.Finalizers)
 	deploymentRef := metav1.NewControllerRef(deployment, appsv1.SchemeGroupVersion.WithKind("Deployment"))
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -312,6 +320,7 @@ func (ac *AdmissionController) generateSecret(ctx context.Context) (*corev1.Secr
 			secretCACert:     caCert,
 		},
 	}
+	deploymentRef.BlockOwnerDeletion = newFalse()
 	secret.OwnerReferences = append(secret.OwnerReferences, *deploymentRef)
 	return secret, nil
 }
@@ -403,4 +412,9 @@ func makeTLSConfig(serverCert, serverKey, caCert []byte, clientAuthType tls.Clie
 		ClientCAs:    caCertPool,
 		ClientAuth:   clientAuthType,
 	}, nil
+}
+
+func newFalse() *bool {
+	b := false
+	return &b
 }
