@@ -27,9 +27,11 @@ rules:
       - apps
     resources:
       - deployments
+      - deployments/finalizers
     verbs:
       - get
       - list
+      - update
   - apiGroups:
       - admissionregistration.k8s.io
     resources:
@@ -56,6 +58,8 @@ rules:
       - rbac.authorization.k8s.io
     resources:
       - clusterroles
+      - clusterroles/finalizers
     verbs:
       - get
       - list
+      - update
